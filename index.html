@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --canvas:#F0EFEC; --card:#FFFFFF; --sunk:#F4F3F0;
@@ -132,6 +133,20 @@ select{appearance:none;padding-right:48px;cursor:pointer;
 .mat-row-text b{display:block;font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mat-row-text small{display:block;font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .mat-row-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.mat-stock-badge{flex:none;text-align:center;padding-left:4px;min-width:34px;}
+.mat-stock-badge b{display:block;font-family:"Bricolage Grotesque",sans-serif;font-size:16px;font-weight:800;line-height:1;}
+.mat-stock-badge span{display:block;font-size:9px;color:var(--ink-2);font-weight:700;text-transform:uppercase;margin-top:2px;}
+.mat-stock-badge.low b{color:var(--red);}
+.inv-row{padding:14px 0;}
+.inv-row-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.inv-row-title{font-size:15.5px;font-weight:800;flex:1;min-width:0;white-space:normal;}
+.inv-row-info{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-bottom:10px;font-size:12.5px;}
+.inv-row-info div{min-width:0;overflow-wrap:break-word;}
+.inv-row-count{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;border-top:1px dashed var(--line);}
+.inv-row-count > div:first-child b{display:block;font-size:16px;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;}
+.inv-count-field{display:flex;align-items:center;gap:8px;}
+.inv-count-field input{width:64px;height:42px;min-height:0;padding:0;text-align:center;background:var(--sunk);border:2px solid var(--signal);border-radius:12px;font:800 16px Manrope,sans-serif;}
+.inv-label{display:block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--ink-3);margin-bottom:1px;}
 .row:first-child{border-top:0}
 .row .t{flex:1;min-width:0}
 .row .t b{display:block;font-size:15.5px;font-weight:700;line-height:1.3}
@@ -418,6 +433,12 @@ details.more dd{margin:0}
   <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mObraSave">Guardar</button></div>
 </div></div>
 
+<div class="scrim" id="mProveedor"><div class="modal"><div class="grab"></div>
+  <div class="modal-top"><h2 id="mProveedorTitle">Proveedor</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body" id="mProveedorBody"></div>
+  <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mProveedorSave">Guardar</button></div>
+</div></div>
+
 <div class="scrim" id="mResp"><div class="modal"><div class="grab"></div>
   <div class="modal-top"><h2 id="mRespTitle">Responsable</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="modal-body" id="mRespBody"></div>
@@ -478,7 +499,7 @@ details.more dd{margin:0}
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ================= ESTADO Y ALMACENAMIENTO (igual que antes) ================= */
-const state = { materiales: [], obras: [], responsables: [], movimientos: [], sugerencias: [], gastos: [], assets:{}, loaded:false };
+const state = { materiales: [], obras: [], responsables: [], movimientos: [], sugerencias: [], gastos: [], proveedores: [], loaded:false };
 const formState = { tipo:'Salida', obraCodigo:null, obraLibre:'', obraDetalle:'', lineas:[], responsableCodigo:null, nota:'', materialSearchQuery:'' };
 const recibiState = { obraCodigo:null, obraLibre:'', seleccion:{}, cantidadRecibida:{}, nombre:'', firmaVacia:true };
 function cantidadRecibidaFor(m){
@@ -494,21 +515,7 @@ const seedMateriales = [{codigo:'MAT-001', descripcion:'Cemento gris 25kg', unid
 const seedObras = [{codigo:'OBR-001', nombre:'Reforma Calle Mayor 12', responsable:'Encargado', estado:'Activa', ejemplo:true, actualizadoEn:1}];
 const seedResponsables = [{codigo:'RESP-001', nombre:'Encargado de almacén', ejemplo:true, actualizadoEn:1}];
 
-/* 1) Cuenta gratuita en https://jsonbin.io
-   2) Tu API Key en https://jsonbin.io/api-keys -> pégala en JSONBIN_API_KEY
-      (esa clave da acceso a TODOS los bins de tu cuenta: usa una cuenta dedicada solo a esta app)
-   3) Bin principal, contenido inicial:
-      {"materiales":[{"codigo":"MAT-001","descripcion":"Cemento gris 25kg","unidad":"sacos","proveedor":"","codigoProveedor":"","codigoPropio":"","ejemplo":true,"actualizadoEn":1}],"obras":[{"codigo":"OBR-001","nombre":"Reforma Calle Mayor 12","responsable":"Encargado","estado":"Activa","ejemplo":true,"actualizadoEn":1}],"responsables":[{"codigo":"RESP-001","nombre":"Encargado de almacén","ejemplo":true,"actualizadoEn":1}],"movimientos":[]}
-      -> pega su ID en JSONBIN_BIN_ID
-   4) Bin de fotos/firmas, contenido inicial: {}  -> pega su ID en JSONBIN_ASSETS_BIN_ID (opcional) */
-const JSONBIN_API_KEY = '$2a$10$5DKABYP8CsU.TCkAeSesNOwMQaCRfbMhtwPa4Cd5R2nZBJbhSR8NC';
-const JSONBIN_BIN_ID  = '6a7afae3f5f4af5e2906a31b';
-const JSONBIN_ASSETS_BIN_ID = 'PASTE_TU_ASSETS_BIN_ID_AQUI';
-const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID;
-const JSONBIN_ASSETS_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_ASSETS_BIN_ID;
 
-function jsonbinConfigured(){ return JSONBIN_API_KEY && !JSONBIN_API_KEY.includes('PASTE') && JSONBIN_BIN_ID && !JSONBIN_BIN_ID.includes('PASTE'); }
-function assetsConfigured(){ return JSONBIN_ASSETS_BIN_ID && !JSONBIN_ASSETS_BIN_ID.includes('PASTE'); }
 function touch(obj){ obj.actualizadoEn = Date.now(); return obj; }
 function mergeCollections(remote, local, idKey){
   const map = {};
@@ -526,7 +533,7 @@ function persistOfflineSnapshot(){
   try{
     localStorage.setItem(OFFLINE_KEY, JSON.stringify({
       materiales: state.materiales, obras: state.obras, responsables: state.responsables,
-      movimientos: state.movimientos, sugerencias: state.sugerencias, gastos: state.gastos, ts: Date.now()
+      movimientos: state.movimientos, sugerencias: state.sugerencias, gastos: state.gastos, proveedores: state.proveedores, ts: Date.now()
     }));
   }catch(e){}
 }
@@ -542,6 +549,7 @@ function loadOfflineSnapshotIfAny(){
     state.movimientos = mergeCollections(state.movimientos, snap.movimientos||[], 'id');
     state.sugerencias = mergeCollections(state.sugerencias, snap.sugerencias||[], 'id');
     state.gastos = mergeCollections(state.gastos, snap.gastos||[], 'id');
+    state.proveedores = mergeCollections(state.proveedores, snap.proveedores||[], 'codigo');
     return true;
   }catch(e){ return false; }
 }
@@ -560,56 +568,82 @@ function scheduleRetrySync(){
 }
 addEventListener('online', ()=>{ if(syncPending) saveAll().then(()=>renderCurrentPanel()); });
 
-async function loadAll(){
+/* ---- Supabase ---- */
+const SUPABASE_URL = 'https://ehawmfrfurklevtwzbmb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoYXdtZnJmdXJrbGV2dHd6Ym1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTQ5NjcsImV4cCI6MjEwMzg5MDk2N30.GKXavYZyWKRgt2I74x3hBBn2F21yjNkPihCytUJcVGs';
+function supabaseConfigured(){ return SUPABASE_URL && !SUPABASE_URL.includes('PASTE') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PASTE'); }
+const sb = (typeof supabase!=='undefined' && supabaseConfigured()) ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const TABLAS = [
+  {name:'materiales', idKey:'codigo'},
+  {name:'obras', idKey:'codigo'},
+  {name:'responsables', idKey:'codigo'},
+  {name:'proveedores', idKey:'codigo'},
+  {name:'movimientos', idKey:'id'},
+  {name:'sugerencias', idKey:'id'},
+  {name:'gastos', idKey:'id'},
+];
+function camelToSnake(s){ return s.replace(/[A-Z]/g, c=>'_'+c.toLowerCase()); }
+function snakeToCamel(s){ return s.replace(/_([a-z0-9])/g, (_,c)=>c.toUpperCase()); }
+function rowFromObj(obj){
+  const row = {};
+  Object.keys(obj).forEach(k=>{ if(k==='foto'||k==='fotoId') return; if(obj[k]!==undefined) row[camelToSnake(k)] = obj[k]; });
+  return row;
+}
+function objFromRow(row){
+  const obj = {};
+  Object.keys(row).forEach(k=>{ obj[snakeToCamel(k)] = row[k]; });
+  return obj;
+}
+async function uploadToStorage(dataUrl, pathPrefix){
+  if(!sb) return null;
   try{
-    const res = await fetch(JSONBIN_URL + '/latest', { headers:{ 'X-Master-Key': JSONBIN_API_KEY } });
-    if(!res.ok){
-      let detail = '';
-      try{ const j = await res.json(); detail = j.message || JSON.stringify(j); }catch(e){ try{ detail = await res.text(); }catch(e2){} }
-      throw new Error('HTTP '+res.status+(detail?' — '+detail.slice(0,200):''));
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const ext = (blob.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+    const path = pathPrefix + '_' + Date.now() + '_' + Math.floor(Math.random()*10000) + '.' + ext;
+    const { error } = await sb.storage.from('attachments').upload(path, blob, { upsert:true, contentType: blob.type });
+    if(error) throw error;
+    const { data } = sb.storage.from('attachments').getPublicUrl(path);
+    return data.publicUrl;
+  }catch(e){
+    console.error('upload error', e);
+    toast('No se pudo subir la imagen');
+    return null;
+  }
+}
+async function loadAll(){
+  if(!sb){ lastLoadError = 'Supabase no está configurado'; state.loaded = true; return; }
+  try{
+    for(const t of TABLAS){
+      const { data, error } = await sb.from(t.name).select('*');
+      if(error) throw error;
+      state[t.name] = (data||[]).map(objFromRow);
     }
-    const data = await res.json();
-    const record = data.record || {};
-    state.materiales = record.materiales || seedMateriales;
-    state.obras = record.obras || seedObras;
-    state.responsables = record.responsables || seedResponsables;
-    state.movimientos = record.movimientos || [];
-    state.sugerencias = record.sugerencias || [];
-    state.gastos = record.gastos || [];
     lastLoadError = null;
     if(loadOfflineSnapshotIfAny()){ await saveAll(); }
   }catch(e){
     console.error('load error', e);
     lastLoadError = (e && e.message) ? e.message : String(e);
-    if(!state.loaded){ state.materiales=seedMateriales; state.obras=seedObras; state.responsables=seedResponsables; state.movimientos=[]; state.sugerencias=[]; state.gastos=[]; }
+    if(!state.loaded){ state.materiales=seedMateriales; state.obras=seedObras; state.responsables=seedResponsables; state.movimientos=[]; state.sugerencias=[]; state.gastos=[]; state.proveedores=[]; }
     loadOfflineSnapshotIfAny();
-  }
-  if(assetsConfigured()){
-    try{
-      const res2 = await fetch(JSONBIN_ASSETS_URL + '/latest', { headers:{ 'X-Master-Key': JSONBIN_API_KEY } });
-      if(res2.ok){ const data2 = await res2.json(); state.assets = data2.record || {}; }
-    }catch(e){ console.error('assets load error', e); }
   }
   state.loaded = true;
 }
 async function saveAll(){
+  if(!sb){ persistOfflineSnapshot(); syncPending=true; updateSyncBadge(); return true; }
   try{
-    let remote = {materiales:[], obras:[], responsables:[], movimientos:[], sugerencias:[], gastos:[]};
-    try{
-      const getRes = await fetch(JSONBIN_URL + '/latest', { headers:{ 'X-Master-Key': JSONBIN_API_KEY } });
-      if(getRes.ok){ const data = await getRes.json(); remote = data.record || remote; }
-    }catch(e){ console.error('pre-save fetch error', e); }
-    const merged = {
-      materiales: mergeCollections(remote.materiales, state.materiales, 'codigo'),
-      obras: mergeCollections(remote.obras, state.obras, 'codigo'),
-      responsables: mergeCollections(remote.responsables, state.responsables, 'codigo'),
-      movimientos: mergeCollections(remote.movimientos, state.movimientos, 'id'),
-      sugerencias: mergeCollections(remote.sugerencias, state.sugerencias, 'id'),
-      gastos: mergeCollections(remote.gastos, state.gastos, 'id'),
-    };
-    const res = await fetch(JSONBIN_URL, { method:'PUT', headers:{ 'Content-Type':'application/json', 'X-Master-Key': JSONBIN_API_KEY }, body: JSON.stringify(merged) });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    state.materiales = merged.materiales; state.obras = merged.obras; state.responsables = merged.responsables; state.movimientos = merged.movimientos; state.sugerencias = merged.sugerencias; state.gastos = merged.gastos;
+    for(const t of TABLAS){
+      const { data: remoteRows, error: getErr } = await sb.from(t.name).select('*');
+      if(getErr) throw getErr;
+      const remote = (remoteRows||[]).map(objFromRow);
+      const merged = mergeCollections(remote, state[t.name], t.idKey);
+      state[t.name] = merged;
+      if(merged.length){
+        const rows = merged.map(rowFromObj);
+        const { error: upErr } = await sb.from(t.name).upsert(rows, { onConflict: t.idKey });
+        if(upErr) throw upErr;
+      }
+    }
     clearOfflineSnapshot();
     if(syncPending){ syncPending=false; updateSyncBadge(); toast('Sincronizado ✓'); }
     return true;
@@ -622,19 +656,6 @@ async function saveAll(){
     scheduleRetrySync();
     return true;
   }
-}
-async function saveAsset(id, dataUrl){
-  state.assets[id] = dataUrl;
-  if(!assetsConfigured()){ toast('Guardado solo en este dispositivo (falta configurar el bin de fotos)'); return; }
-  try{
-    const getRes = await fetch(JSONBIN_ASSETS_URL + '/latest', { headers:{ 'X-Master-Key': JSONBIN_API_KEY } });
-    let remoteAssets = {};
-    if(getRes.ok){ const data = await getRes.json(); remoteAssets = data.record || {}; }
-    remoteAssets[id] = dataUrl;
-    const res = await fetch(JSONBIN_ASSETS_URL, { method:'PUT', headers:{ 'Content-Type':'application/json', 'X-Master-Key': JSONBIN_API_KEY }, body: JSON.stringify(remoteAssets) });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    state.assets = remoteAssets;
-  }catch(e){ console.error('asset save error', e); toast('No se pudo guardar la imagen'); }
 }
 
 /* ================= AYUDANTES ================= */
@@ -649,7 +670,7 @@ function nextCodigo(prefix, arr){
   return prefix+'-'+String(max+1).padStart(3,'0');
 }
 function findMaterial(codigo){ return state.materiales.find(m=>m.codigo===codigo || (m.codigoPropio && m.codigoPropio===codigo)); }
-function materialFoto(m){ return m.foto || (m.fotoId ? state.assets[m.fotoId] : null); }
+function materialFoto(m){ return m.fotoUrl || null; }
 function findObra(codigo){ return state.obras.find(o=>o.codigo===codigo); }
 function findResponsable(codigo){ return state.responsables.find(r=>r.codigo===codigo); }
 function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); }
@@ -1425,7 +1446,9 @@ async function confirmarRecepcion(){
   const nombre = (recibiState.nombre||'').trim();
   if(!nombre){ toast('Indica el nombre de quien recibe'); return; }
   if(recibiState.firmaVacia){ toast('Falta la firma'); return; }
+  const btn = $('#firmaConfirmBtn'); btn.disabled = true;
   const firmaDataUrl = currentSigCanvas.toDataURL('image/png');
+  const firmaUrl = await uploadToStorage(firmaDataUrl, 'firmas/'+Date.now());
   const fecha = new Date().toISOString();
   const ahora = Date.now();
   let huboParcial = false;
@@ -1443,9 +1466,8 @@ async function confirmarRecepcion(){
       }));
       m.cantidad = cantRecibida;
     }
-    m.recibido=true; m.recibidoPor=nombre; m.recibidoFirma=firmaDataUrl; m.recibidoFecha=fecha; touch(m);
+    m.recibido=true; m.recibidoPor=nombre; m.recibidoFirmaUrl=firmaUrl; m.recibidoFecha=fecha; touch(m);
   });
-  const btn = $('#firmaConfirmBtn'); btn.disabled = true;
   const ok = await saveAll();
   btn.disabled = false;
   if(ok){
@@ -1539,12 +1561,14 @@ function renderHistorial(){
       const grupo=g.movs, m0=grupo[0];
       const resp = m0.responsableCodigo?findResponsable(m0.responsableCodigo):null;
       const hora = new Date(m0.fecha).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-      const todosRecibidos = grupo.every(m=>m.recibido);
+      const esAjuste = m0.obraLibre === 'Ajuste de inventario';
+      const todosRecibidos = !esAjuste && grupo.every(m=>m.recibido);
       html += `<div class="card">
         <div class="card-head">
           <button class="tag click ${m0.tipo==='Entrada'?'in':'out'}" data-filtertipo="${m0.tipo}">${m0.tipo}</button>
           <b ${m0.codigoObra?`data-filterobra="${m0.codigoObra}"`:''}>${escapeHtml(obraLabelHis(m0))}</b>
           <span class="sp"></span><span class="muted" style="font-size:13.5px;font-weight:600">${hora}</span>
+          ${esAjuste?'<span class="tag">Ajuste</span>':''}
           ${todosRecibidos?'<span class="tag in">Recibido</span>':''}
         </div>
         ${grupo.map(m=>{
@@ -1655,22 +1679,27 @@ function renderCatalogo(){
     <div class="subtabs">
       <button class="btn ${catalogSub==='materiales'?'btn-signal':'btn-line'} btn-sm" data-tab="materiales">Materiales</button>
       <button class="btn ${catalogSub==='obras'?'btn-signal':'btn-line'} btn-sm" data-tab="obras">Obras</button>
+      <button class="btn ${catalogSub==='proveedores'?'btn-signal':'btn-line'} btn-sm" data-tab="proveedores">Proveedores</button>
     </div>
     <div id="catBody"></div>
   `;
   el.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click', ()=>{ catalogSub=b.dataset.tab; renderCatalogo(); }));
-  if(catalogSub==='materiales') renderMaterialesTab($('#catBody')); else renderObrasTab($('#catBody'));
+  if(catalogSub==='materiales') renderMaterialesTab($('#catBody'));
+  else if(catalogSub==='obras') renderObrasTab($('#catBody'));
+  else renderProveedoresTab($('#catBody'));
 }
 let matCatPage = 1;
 let matSeleccionados = new Set();
+let modoInventario = false;
+let inventarioConteo = {};
 function renderMaterialesTab(el){
   el.innerHTML = `
     <div class="two" style="margin-bottom:10px">
       <div class="search" style="margin-bottom:0">${ICON_SEARCH}<input type="search" id="matCatSearch" placeholder="Buscar material"></div>
       <select id="matCatGrupo" aria-label="Grupo"><option value="">Todos los grupos</option>${GRUPOS_MATERIAL.map(g=>`<option value="${g}">${g}</option>`).join('')}</select>
     </div>
-    <button class="btn btn-ink btn-block" style="margin-bottom:12px" id="addMatBtn">Añadir material</button>
-    ${matSeleccionados.size>0 ? `<div class="card">
+    ${modoInventario ? '' : `<button class="btn btn-ink btn-block" style="margin-bottom:12px" id="addMatBtn">Añadir material</button>`}
+    ${matSeleccionados.size>0 && !modoInventario ? `<div class="card">
       <b style="font-size:14px;display:block;margin-bottom:10px;">${matSeleccionados.size} seleccionado${matSeleccionados.size===1?'':'s'}</b>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-line btn-sm" id="matSelClearBtn" style="flex:1 1 90px;">Cancelar</button>
@@ -1678,12 +1707,23 @@ function renderMaterialesTab(el){
         <button class="btn btn-ink btn-sm" id="matSelPrintBtn" style="flex:1 1 90px;">Imprimir etiquetas</button>
       </div>
     </div>` : ''}
+    ${modoInventario ? `<div class="card" style="background:var(--signal);border:0;">
+      <b style="font-size:14.5px;color:var(--signal-ink);display:block;margin-bottom:4px;">Modo inventario activo · ${Object.keys(inventarioConteo).length} contado${Object.keys(inventarioConteo).length===1?'':'s'}</b>
+      <p class="note" style="color:var(--signal-ink);opacity:.75;margin:0 0 10px;">Busca cada material y escribe la cantidad real que has contado. Solo se ajustan los que cambien.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-line btn-sm" id="invCancelBtn" style="flex:1 1 100px;background:transparent;">Cancelar</button>
+        <button class="btn btn-ink btn-sm" id="invAplicarBtn" style="flex:1 1 100px;">Aplicar ajustes</button>
+      </div>
+    </div>` : `<button class="btn btn-line btn-block" style="margin-bottom:12px" id="invStartBtn">Hacer inventario</button>`}
     <div id="matCatList"></div>
   `;
-  el.querySelector('#addMatBtn').addEventListener('click', ()=> openMaterialModal(null,''));
+  const addMatBtn = el.querySelector('#addMatBtn'); if(addMatBtn) addMatBtn.addEventListener('click', ()=> openMaterialModal(null,''));
   const clearBtn=el.querySelector('#matSelClearBtn'); if(clearBtn) clearBtn.addEventListener('click', ()=>{ matSeleccionados.clear(); renderMaterialesTab(el); });
   const printSelBtn=el.querySelector('#matSelPrintBtn'); if(printSelBtn) printSelBtn.addEventListener('click', imprimirEtiquetasMultiples);
   const addSelBtn=el.querySelector('#matSelAddBtn'); if(addSelBtn) addSelBtn.addEventListener('click', agregarSeleccionadosAMovimiento);
+  const invStartBtn=el.querySelector('#invStartBtn'); if(invStartBtn) invStartBtn.addEventListener('click', ()=>{ modoInventario=true; inventarioConteo={}; matSeleccionados.clear(); renderMaterialesTab(el); });
+  const invCancelBtn=el.querySelector('#invCancelBtn'); if(invCancelBtn) invCancelBtn.addEventListener('click', ()=>{ modoInventario=false; inventarioConteo={}; renderMaterialesTab(el); });
+  const invAplicarBtn=el.querySelector('#invAplicarBtn'); if(invAplicarBtn) invAplicarBtn.addEventListener('click', aplicarAjustesInventario);
   const searchInput = el.querySelector('#matCatSearch');
   const grupoSel = el.querySelector('#matCatGrupo');
   searchInput.addEventListener('input', ()=>{ matCatPage=1; draw(); });
@@ -1696,11 +1736,43 @@ function renderMaterialesTab(el){
     if(grupo) list = list.filter(m=> (m.grupo||'Otros')===grupo);
     if(q) list = list.filter(m=> materialMatchesQuery(m, q));
     list.sort((a,b)=>a.descripcion.localeCompare(b.descripcion));
+    if(modoInventario && !q && !grupo){
+      $('#matCatList').innerHTML = `<p class="empty">Busca un material o elige un grupo arriba para empezar a contar.</p>`;
+      return;
+    }
     const totalPages = Math.max(1, Math.ceil(list.length/PER_PAGE));
     matCatPage = Math.min(Math.max(1,matCatPage), totalPages);
     const pageList = list.slice((matCatPage-1)*PER_PAGE, matCatPage*PER_PAGE);
     $('#matCatList').innerHTML = (list.length ? `<div class="card">` + pageList.map(m=>{
       const foto = materialFoto(m);
+      const stockActual = stockGlobal(m.codigo);
+      const bajoMinimo = m.stockMinimo!=null && m.stockMinimo>0 && stockActual < m.stockMinimo;
+      if(modoInventario){
+        const contado = inventarioConteo[m.codigo];
+        return `<div style="padding:16px 0;border-top:1px solid var(--line);">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            ${foto?`<img src="${foto}" style="width:50px;height:50px;border-radius:12px;object-fit:cover;flex:none;">`:'<div style="width:50px;height:50px;border-radius:12px;background:var(--sunk);flex:none;"></div>'}
+            <div style="font-size:16px;font-weight:800;color:var(--ink);">${escapeHtml(m.descripcion)}</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:13.5px;color:var(--ink);margin-bottom:12px;">
+            <tr><td style="padding:3px 8px 3px 0;color:var(--ink-2);font-weight:700;width:110px;">Grupo</td><td style="padding:3px 0;color:var(--ink);">${escapeHtml(m.grupo||'Otros')}</td></tr>
+            <tr><td style="padding:3px 8px 3px 0;color:var(--ink-2);font-weight:700;">Proveedor</td><td style="padding:3px 0;color:var(--ink);">${escapeHtml(m.proveedor||'—')}</td></tr>
+            <tr><td style="padding:3px 8px 3px 0;color:var(--ink-2);font-weight:700;">Cód. proveedor</td><td style="padding:3px 0;color:var(--ink);">${escapeHtml(m.codigoProveedor||'—')}</td></tr>
+            <tr><td style="padding:3px 8px 3px 0;color:var(--ink-2);font-weight:700;">Cód. propio</td><td style="padding:3px 0;color:var(--ink);">${escapeHtml(m.codigoPropio||m.codigo)}</td></tr>
+          </table>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px dashed var(--line);">
+            <div style="color:var(--ink);">
+              <div style="font-size:10.5px;font-weight:800;color:var(--ink-2);text-transform:uppercase;">Sistema cree que hay</div>
+              <div style="font-size:18px;font-weight:800;color:${bajoMinimo?'#C22E2E':'var(--ink)'};">${stockActual} ${escapeHtml(unidadAbrev(m.unidad))}</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:10.5px;font-weight:800;color:var(--ink-2);text-transform:uppercase;margin-bottom:4px;">Cantidad contada</div>
+              <input type="text" inputmode="numeric" data-invcount="${m.codigo}" value="${contado!=null?contado:''}" placeholder="${stockActual}" aria-label="Cantidad contada"
+                style="width:76px;height:46px;text-align:center;background:var(--sunk);border:2px solid var(--signal);border-radius:12px;font-size:17px;font-weight:800;color:var(--ink);">
+            </div>
+          </div>
+        </div>`;
+      }
       const provTxt = [m.proveedor, m.codigoProveedor?`<span class="code-copy" data-copy="${escapeHtml(m.codigoProveedor)}">${escapeHtml(m.codigoProveedor)}</span>`:null].filter(Boolean).join(' · ');
       return `<div class="mat-row">
         <div class="mat-row-top">
@@ -1710,6 +1782,7 @@ function renderMaterialesTab(el){
             <b class="cart-name" data-verficha="${m.codigo}">${escapeHtml(m.descripcion)}</b>
             <small>${provTxt||'Sin proveedor'}</small>
           </div>
+          <div class="mat-stock-badge ${bajoMinimo?'low':''}"><b>${stockActual}</b><span>${escapeHtml(unidadAbrev(m.unidad))}</span></div>
         </div>
         <div class="mat-row-acts">
           <button class="icon-btn" data-addmov="${m.codigo}" aria-label="Añadir a movimiento" title="Añadir a movimiento">${ICON_ADD}</button>
@@ -1718,21 +1791,71 @@ function renderMaterialesTab(el){
       </div>`;
     }).join('') + `</div>` : `<p class="empty">Aún no hay materiales dados de alta.</p>`) + pagerHtml(matCatPage, totalPages, 'matCat');
     $$('[data-verficha]').forEach(b=>b.addEventListener('click', ()=> openMaterialFicha(findMaterial(b.dataset.verficha))));
-    $$('[data-matsel]').forEach(cb=>cb.addEventListener('change', e=>{
-      if(e.target.checked) matSeleccionados.add(e.target.dataset.matsel); else matSeleccionados.delete(e.target.dataset.matsel);
-      renderMaterialesTab(el);
-    }));
-    $$('[data-addmov]').forEach(b=>b.addEventListener('click', ()=>{
-      addMaterialALineas(b.dataset.addmov);
-      const mat = findMaterial(b.dataset.addmov);
-      toast('Añadido al movimiento: '+(mat?mat.descripcion:''));
-      goTab('mov');
-    }));
-    $$('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openMaterialModal(findMaterial(b.dataset.edit))));
+    if(modoInventario){
+      $$('[data-invcount]').forEach(inp=>{
+        inp.addEventListener('focus', e=>e.target.select());
+        inp.addEventListener('input', e=>{
+          const v = e.target.value.trim();
+          if(v==='') delete inventarioConteo[e.target.dataset.invcount];
+          else inventarioConteo[e.target.dataset.invcount] = v;
+        });
+      });
+    } else {
+      $$('[data-matsel]').forEach(cb=>cb.addEventListener('change', e=>{
+        if(e.target.checked) matSeleccionados.add(e.target.dataset.matsel); else matSeleccionados.delete(e.target.dataset.matsel);
+        renderMaterialesTab(el);
+      }));
+      $$('[data-addmov]').forEach(b=>b.addEventListener('click', ()=>{
+        addMaterialALineas(b.dataset.addmov);
+        const mat = findMaterial(b.dataset.addmov);
+        toast('Añadido al movimiento: '+(mat?mat.descripcion:''));
+        goTab('mov');
+      }));
+      $$('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openMaterialModal(findMaterial(b.dataset.edit))));
+    }
     wireCopyButtons();
     const prevBtn=$('#matCatPrev'), nextBtn=$('#matCatNext');
     if(prevBtn) prevBtn.addEventListener('click', ()=>{ matCatPage--; draw(); });
     if(nextBtn) nextBtn.addEventListener('click', ()=>{ matCatPage++; draw(); });
+  }
+}
+async function aplicarAjustesInventario(){
+  const cambios = [];
+  Object.keys(inventarioConteo).forEach(codigo=>{
+    const raw = inventarioConteo[codigo];
+    if(raw==null || raw==='') return;
+    const contado = Number(raw);
+    if(isNaN(contado)) return;
+    const actual = stockGlobal(codigo);
+    const diff = contado - actual;
+    if(diff!==0) cambios.push({ codigo, diff });
+  });
+  if(!cambios.length){ toast('No hay diferencias que ajustar'); modoInventario=false; inventarioConteo={}; renderCatalogo(); return; }
+  if(!confirm('Se van a crear '+cambios.length+' movimiento'+(cambios.length===1?'':'s')+' de ajuste de inventario. ¿Continuar?')) return;
+  const fecha = new Date().toISOString();
+  const ahora = Date.now();
+  const grupoId = 'G'+ahora+'_ajuste_'+Math.floor(Math.random()*10000);
+  cambios.forEach((c,i)=>{
+    state.movimientos.push(touch({
+      id:'M'+ahora+'_'+i+'_adj_'+Math.floor(Math.random()*10000),
+      grupoId, fecha,
+      tipo: c.diff>0 ? 'Entrada' : 'Salida',
+      codigoMaterial: c.codigo,
+      cantidad: Math.abs(c.diff),
+      codigoObra: null,
+      obraLibre: 'Ajuste de inventario',
+      obraDetalle: '',
+      responsableCodigo: currentUsuario ? currentUsuario.codigo : null,
+      nota: 'Regularización de stock',
+      recibido: true
+    }));
+  });
+  const ok = await saveAll();
+  if(ok){
+    toast('Ajustes aplicados: '+cambios.length);
+    modoInventario = false;
+    inventarioConteo = {};
+    renderCatalogo();
   }
 }
 function agregarSeleccionadosAMovimiento(){
@@ -1799,9 +1922,8 @@ const UNIDADES_COMUNES = ['unidades','sacos','metros','m2','m3','kg','litros','c
 const GRUPOS_MATERIAL = ['Escuadras','Perfiles','Tornillería','Anclajes','Consumibles','Otros'];
 function openMaterialModal(existing, prefillCodigo){
   const isEdit = !!existing;
-  let fotoDataUrl = existing?.foto || (existing?.fotoId ? state.assets[existing.fotoId] : null);
+  let fotoDataUrl = existing?.fotoUrl || null;
   let fotoCambiada = false;
-  const fotoId = existing?.fotoId || ('foto_'+(existing?.codigo || 'nuevo_'+Date.now()));
   $('#mMaterialTitle').textContent = isEdit?'Editar material':'Nuevo material';
   const body = $('#mMaterialBody');
   body.innerHTML = `
@@ -1878,11 +2000,13 @@ function openMaterialModal(existing, prefillCodigo){
       toast('Ya existe un material con ese código propio'); return;
     }
     const btn = $('#mMaterialSave'); btn.disabled=true;
-    const usarAssetsBin = assetsConfigured();
-    const fotoFields = usarAssetsBin ? {fotoId: fotoDataUrl?fotoId:(existing?.fotoId||null), foto:null} : {foto: fotoDataUrl||existing?.foto||null, fotoId:null};
-    if(isEdit){ touch(Object.assign(existing, {descripcion:desc, unidad, grupo, proveedor, codigoProveedor, stockMinimo, ...fotoFields})); }
-    else{ state.materiales.push(touch({codigo:codigoPropio, descripcion:desc, unidad, grupo, proveedor, codigoProveedor, codigoPropio, stockMinimo, ...fotoFields, ejemplo:false})); }
-    if(usarAssetsBin && fotoCambiada && fotoDataUrl) await saveAsset(fotoId, fotoDataUrl);
+    let fotoUrl = existing?.fotoUrl || null;
+    if(fotoCambiada && fotoDataUrl){
+      const subida = await uploadToStorage(fotoDataUrl, 'materiales/'+codigoPropio);
+      if(subida) fotoUrl = subida;
+    }
+    if(isEdit){ touch(Object.assign(existing, {descripcion:desc, unidad, grupo, proveedor, codigoProveedor, stockMinimo, fotoUrl})); }
+    else{ state.materiales.push(touch({codigo:codigoPropio, descripcion:desc, unidad, grupo, proveedor, codigoProveedor, codigoPropio, stockMinimo, fotoUrl, ejemplo:false})); }
     const ok = await saveAll(); btn.disabled=false; closeModals();
     if(ok){ toast('Material guardado'); renderCatalogo(); }
   };
@@ -1907,6 +2031,67 @@ function openObraModal(existing){
     if(ok){ toast('Obra guardada'); renderCatalogo(); }
   };
   openModal('mObra');
+}
+let provCatPage = 1;
+function renderProveedoresTab(el){
+  el.innerHTML = `
+    <div class="search" style="margin-bottom:10px">${ICON_SEARCH}<input type="search" id="provCatSearch" placeholder="Buscar proveedor"></div>
+    <button class="btn btn-ink btn-block" style="margin-bottom:12px" id="addProvBtn">Añadir proveedor</button>
+    <div id="provCatList"></div>
+  `;
+  el.querySelector('#addProvBtn').addEventListener('click', ()=> openProveedorModal(null));
+  const searchInput = el.querySelector('#provCatSearch');
+  searchInput.addEventListener('input', ()=>{ provCatPage=1; draw(); });
+  draw();
+  function draw(){
+    const q=(searchInput.value||'').trim().toLowerCase();
+    let list = state.proveedores.filter(p=>!p.eliminado);
+    if(q) list = list.filter(p=> p.nombre.toLowerCase().includes(q) || (p.telefono&&p.telefono.toLowerCase().includes(q)) || (p.email&&p.email.toLowerCase().includes(q)));
+    list.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    const totalPages = Math.max(1, Math.ceil(list.length/PER_PAGE));
+    provCatPage = Math.min(Math.max(1,provCatPage), totalPages);
+    const pageList = list.slice((provCatPage-1)*PER_PAGE, provCatPage*PER_PAGE);
+    $('#provCatList').innerHTML = (list.length ? `<div class="card">` + pageList.map(p=>`
+      <div class="cat-row"><div class="t"><b>${escapeHtml(p.nombre)}</b><small>${[p.telefono,p.email].filter(Boolean).map(escapeHtml).join(' · ')||'Sin datos de contacto'}</small></div>
+        <div class="acts">
+          <button class="icon-btn" data-edit="${p.codigo}" aria-label="Editar">${ICON_EDIT}</button>
+          <button class="icon-btn" data-del="${p.codigo}" aria-label="Borrar">${ICON_TRASH}</button>
+        </div></div>`).join('') + `</div>` : `<p class="empty">Aún no hay proveedores dados de alta.</p>`) + pagerHtml(provCatPage, totalPages, 'provCat');
+    $$('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openProveedorModal(state.proveedores.find(p=>p.codigo===b.dataset.edit))));
+    $$('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
+      if(confirm('¿Eliminar este proveedor?')){
+        const prov = state.proveedores.find(p=>p.codigo===b.dataset.del);
+        if(prov){ prov.eliminado=true; touch(prov); }
+        const ok = await saveAll(); if(ok) toast('Proveedor eliminado'); renderCatalogo();
+      }
+    }));
+    const prevBtn=$('#provCatPrev'), nextBtn=$('#provCatNext');
+    if(prevBtn) prevBtn.addEventListener('click', ()=>{ provCatPage--; draw(); });
+    if(nextBtn) nextBtn.addEventListener('click', ()=>{ provCatPage++; draw(); });
+  }
+}
+function openProveedorModal(existing){
+  const isEdit = !!existing;
+  $('#mProveedorTitle').textContent = isEdit?'Editar proveedor':'Nuevo proveedor';
+  const body = $('#mProveedorBody');
+  body.innerHTML = `
+    <div class="field"><label for="pvNom">Nombre</label><input id="pvNom" type="text" value="${escapeHtml(existing?.nombre||'')}" placeholder="Ej. Ferretería López"></div>
+    <div class="two">
+      <div class="field"><label for="pvTel">Teléfono</label><input id="pvTel" type="text" value="${escapeHtml(existing?.telefono||'')}"></div>
+      <div class="field"><label for="pvEmail">Email</label><input id="pvEmail" type="text" value="${escapeHtml(existing?.email||'')}"></div>
+    </div>
+    <div class="field"><label for="pvNotas">Notas (opcional)</label><input id="pvNotas" type="text" value="${escapeHtml(existing?.notas||'')}" placeholder="Ej. Cuenta cliente 4471"></div>
+  `;
+  $('#mProveedorSave').onclick = async ()=>{
+    const nombre=body.querySelector('#pvNom').value.trim(), telefono=body.querySelector('#pvTel').value.trim(), email=body.querySelector('#pvEmail').value.trim(), notas=body.querySelector('#pvNotas').value.trim();
+    if(!nombre){ toast('El nombre del proveedor es obligatorio'); return; }
+    const btn = $('#mProveedorSave'); btn.disabled=true;
+    if(isEdit){ touch(Object.assign(existing, {nombre, telefono, email, notas})); }
+    else{ const codigo=nextCodigo('PROV', state.proveedores); state.proveedores.push(touch({codigo, nombre, telefono, email, notas, ejemplo:false})); }
+    const ok = await saveAll(); btn.disabled=false; closeModals();
+    if(ok){ toast('Proveedor guardado'); renderCatalogo(); }
+  };
+  openModal('mProveedor');
 }
 function qrImageUrl(text, size){
   size = size || 240;
@@ -1989,6 +2174,7 @@ function openMaterialFicha(material){
     <h3 style="font-size:22px;line-height:1.15;margin-bottom:4px;">${escapeHtml(material.descripcion)}</h3>
     <p class="note" style="margin-bottom:18px;">${escapeHtml(material.grupo||'Otros')}</p>
     <dl style="display:grid;grid-template-columns:auto 1fr;gap:11px 18px;font-size:15px;margin:0;">
+      <dt class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;">Stock actual</dt><dd style="margin:0;font-weight:800;">${stockGlobal(material.codigo)} ${escapeHtml(unidadAbrev(material.unidad))}</dd>
       <dt class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;">Unidad</dt><dd style="margin:0;">${escapeHtml(unidadAbrev(material.unidad))} (${escapeHtml(material.unidad)})</dd>
       <dt class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;">Proveedor</dt><dd style="margin:0;">${escapeHtml(material.proveedor||'—')}</dd>
       <dt class="muted" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;">Código proveedor</dt><dd style="margin:0;">${escapeHtml(material.codigoProveedor||'—')}</dd>
@@ -2114,7 +2300,7 @@ function renderGastos(){
   gastosPage = Math.min(Math.max(1,gastosPage), totalPages);
   const pageList = list.slice((gastosPage-1)*PER_PAGE, gastosPage*PER_PAGE);
   $('#gastosList').innerHTML = (list.length ? `<div class="card">` + pageList.map(g=>{
-    const foto = g.foto || (g.fotoId?state.assets[g.fotoId]:null);
+    const foto = g.fotoUrl || null;
     const destino = g.codigoObra ? (findObra(g.codigoObra)?.nombre||g.codigoObra) : (g.obraLibre||'—');
     const nLineas = (g.lineas||[]).length;
     return `<div class="cat-row" data-vergasto="${g.id}" style="cursor:pointer;">
@@ -2171,9 +2357,8 @@ function actualizarTotalSugerido(){
 }
 function openGastoModal(existing){
   const isEdit = !!existing;
-  let fotoDataUrl = existing ? (existing.foto || (existing.fotoId?state.assets[existing.fotoId]:null)) : null;
+  let fotoDataUrl = existing ? (existing.fotoUrl || null) : null;
   let fotoCambiada = false;
-  const fotoId = existing?.fotoId || ('gasto_'+Date.now());
   gastoLineasEdit = isEdit ? (existing.lineas ? existing.lineas.map(l=>({...l})) : []) : [{concepto:'', importe:''}];
   $('#mGastoTitle').textContent = isEdit ? 'Editar ticket' : 'Nuevo ticket';
   const obrasActivas = state.obras.filter(o=>o.estado==='Activa' && !o.eliminado);
@@ -2247,12 +2432,14 @@ function openGastoModal(existing){
   }
   async function guardar(datosExtra, btnGuardando){
     if(btnGuardando) btnGuardando.disabled = true;
-    const usarAssetsBin = assetsConfigured();
-    const fotoFields = usarAssetsBin ? {fotoId: fotoDataUrl?fotoId:(existing?.fotoId||null), foto:null} : {foto: fotoDataUrl||existing?.foto||null, fotoId:null};
-    const datos = { ...datosComunes(), ...datosExtra, ...fotoFields };
+    let fotoUrl = existing?.fotoUrl || null;
+    if(fotoCambiada && fotoDataUrl){
+      const subida = await uploadToStorage(fotoDataUrl, 'gastos/'+Date.now());
+      if(subida) fotoUrl = subida;
+    }
+    const datos = { ...datosComunes(), ...datosExtra, fotoUrl };
     if(isEdit){ touch(Object.assign(existing, datos)); }
     else{ state.gastos.push(touch({ id:'GA'+Date.now()+'_'+Math.floor(Math.random()*10000), creadoPor: currentUsuario?currentUsuario.nombre:'', ...datos })); }
-    if(usarAssetsBin && fotoCambiada && fotoDataUrl) await saveAsset(fotoId, fotoDataUrl);
     const ok = await saveAll();
     if(btnGuardando) btnGuardando.disabled = false;
     closeModals();
@@ -2473,7 +2660,7 @@ const UNLOCK_USER_KEY = 'almacen_unlocked_user';
 const UNLOCK_HOURS = 12;
 let lockCode = '';
 let currentUsuario = null;
-let dataReadyPromise = jsonbinConfigured() ? loadAll() : Promise.resolve();
+let dataReadyPromise = supabaseConfigured() ? loadAll() : Promise.resolve();
 
 function checkStoredUnlock(){
   try{
@@ -2558,10 +2745,10 @@ function notifyNuevasSugerencias(nuevas){
 
 /* ================= ARRANQUE ================= */
 async function startAppAfterUnlock(){
-  if(!jsonbinConfigured()){
+  if(!supabaseConfigured()){
     $('#content-ini').innerHTML = `<div class="head"><div class="tx"><h1>${saludoUsuario()}</h1></div></div>
       <div class="card"><h3 style="margin-bottom:10px">Falta configurar el almacenamiento</h3>
-      <p class="note">Abre el archivo HTML, busca JSONBIN_API_KEY y JSONBIN_BIN_ID cerca del principio del script y rellénalos con tus datos de jsonbin.io. Luego vuelve a subir el archivo.</p></div>`;
+      <p class="note">Abre el archivo HTML, busca SUPABASE_URL y SUPABASE_ANON_KEY cerca del principio del script y rellénalos con los datos de tu proyecto de Supabase.</p></div>`;
     return;
   }
   await dataReadyPromise;
