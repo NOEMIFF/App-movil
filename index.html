@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --canvas:#F0EFEC; --card:#FFFFFF; --sunk:#F4F3F0;
@@ -612,11 +612,11 @@ async function uploadToStorage(dataUrl, pathPrefix){
   }
 }
 async function loadAll(){
-  if(!sb){ lastLoadError = 'Supabase no está configurado'; state.loaded = true; return; }
+  if(!sb){ lastLoadError = typeof supabase==='undefined' ? 'No se pudo cargar la librería de Supabase (revisa tu conexión o la URL del script)' : 'Supabase no está configurado'; state.loaded = true; return; }
   try{
     for(const t of TABLAS){
       const { data, error } = await sb.from(t.name).select('*');
-      if(error) throw error;
+      if(error) throw new Error('Tabla "'+t.name+'": '+(error.message||JSON.stringify(error)));
       state[t.name] = (data||[]).map(objFromRow);
     }
     lastLoadError = null;
@@ -634,14 +634,14 @@ async function saveAll(){
   try{
     for(const t of TABLAS){
       const { data: remoteRows, error: getErr } = await sb.from(t.name).select('*');
-      if(getErr) throw getErr;
+      if(getErr) throw new Error('Tabla "'+t.name+'": '+(getErr.message||JSON.stringify(getErr)));
       const remote = (remoteRows||[]).map(objFromRow);
       const merged = mergeCollections(remote, state[t.name], t.idKey);
       state[t.name] = merged;
       if(merged.length){
         const rows = merged.map(rowFromObj);
         const { error: upErr } = await sb.from(t.name).upsert(rows, { onConflict: t.idKey });
-        if(upErr) throw upErr;
+        if(upErr) throw new Error('Guardando "'+t.name+'": '+(upErr.message||JSON.stringify(upErr)));
       }
     }
     clearOfflineSnapshot();
@@ -649,10 +649,11 @@ async function saveAll(){
     return true;
   }catch(e){
     console.error('save error', e);
+    lastLoadError = (e && e.message) ? e.message : String(e);
     persistOfflineSnapshot();
     syncPending = true;
     updateSyncBadge();
-    toast('Sin conexión: guardado en el móvil, se enviará solo');
+    toast('No se pudo guardar en Supabase: '+lastLoadError);
     scheduleRetrySync();
     return true;
   }
