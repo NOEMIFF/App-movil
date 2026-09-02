@@ -439,8 +439,33 @@ details.more dd{margin:0}
   <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mProveedorSave">Guardar</button></div>
 </div></div>
 
+<div class="scrim" id="mHerramienta"><div class="modal"><div class="grab"></div>
+  <div class="modal-top"><h2 id="mHerramientaTitle">Herramienta</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body" id="mHerramientaBody"></div>
+  <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mHerramientaSave">Guardar</button></div>
+</div></div>
+
+<div class="scrim" id="mAsignarHerr"><div class="modal"><div class="grab"></div>
+  <div class="modal-top"><h2 id="mAsignarHerrTitle">Asignar herramienta</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body" id="mAsignarHerrBody"></div>
+  <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mAsignarHerrSave">Confirmar</button></div>
+</div></div>
+
+<div class="scrim" id="mEpiTipo"><div class="modal"><div class="grab"></div>
+  <div class="modal-top"><h2 id="mEpiTipoTitle">Tipo de EPI</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body" id="mEpiTipoBody"></div>
+  <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mEpiTipoSave">Guardar</button></div>
+</div></div>
+
+<div class="scrim center-modal" id="mEntregaEpi"><div class="modal">
+  <div class="modal-top"><h2>Entregar EPIs</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body" id="mEntregaEpiBody"></div>
+  <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mEntregaEpiSave">Confirmar entrega</button></div>
+</div></div>
+
 <div class="scrim" id="mResp"><div class="modal"><div class="grab"></div>
   <div class="modal-top"><h2 id="mRespTitle">Responsable</h2><button class="icon-btn" data-close aria-label="Cerrar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+
   <div class="modal-body" id="mRespBody"></div>
   <div class="modal-foot"><button class="btn btn-line" data-close>Cancelar</button><button class="btn btn-ink" id="mRespSave">Guardar</button></div>
 </div></div>
@@ -499,7 +524,8 @@ details.more dd{margin:0}
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 /* ================= ESTADO Y ALMACENAMIENTO (igual que antes) ================= */
-const state = { materiales: [], obras: [], responsables: [], movimientos: [], sugerencias: [], gastos: [], proveedores: [], loaded:false };
+const state = { materiales: [], obras: [], responsables: [], movimientos: [], sugerencias: [], gastos: [], proveedores: [],
+  herramientas: [], herramientas_movimientos: [], epis_catalogo: [], operario_tallas: [], epis_entregas: [], loaded:false };
 const formState = { tipo:'Salida', obraCodigo:null, obraLibre:'', obraDetalle:'', lineas:[], responsableCodigo:null, nota:'', materialSearchQuery:'' };
 const recibiState = { obraCodigo:null, obraLibre:'', seleccion:{}, cantidadRecibida:{}, nombre:'', firmaVacia:true };
 function cantidadRecibidaFor(m){
@@ -531,10 +557,9 @@ let lastLoadError = null;
 let syncPending = false;
 function persistOfflineSnapshot(){
   try{
-    localStorage.setItem(OFFLINE_KEY, JSON.stringify({
-      materiales: state.materiales, obras: state.obras, responsables: state.responsables,
-      movimientos: state.movimientos, sugerencias: state.sugerencias, gastos: state.gastos, proveedores: state.proveedores, ts: Date.now()
-    }));
+    const snap = { ts: Date.now() };
+    TABLAS.forEach(t=> snap[t.name] = state[t.name]);
+    localStorage.setItem(OFFLINE_KEY, JSON.stringify(snap));
   }catch(e){}
 }
 function clearOfflineSnapshot(){ try{ localStorage.removeItem(OFFLINE_KEY); }catch(e){} }
@@ -543,13 +568,7 @@ function loadOfflineSnapshotIfAny(){
     const raw = localStorage.getItem(OFFLINE_KEY);
     if(!raw) return false;
     const snap = JSON.parse(raw);
-    state.materiales = mergeCollections(state.materiales, snap.materiales||[], 'codigo');
-    state.obras = mergeCollections(state.obras, snap.obras||[], 'codigo');
-    state.responsables = mergeCollections(state.responsables, snap.responsables||[], 'codigo');
-    state.movimientos = mergeCollections(state.movimientos, snap.movimientos||[], 'id');
-    state.sugerencias = mergeCollections(state.sugerencias, snap.sugerencias||[], 'id');
-    state.gastos = mergeCollections(state.gastos, snap.gastos||[], 'id');
-    state.proveedores = mergeCollections(state.proveedores, snap.proveedores||[], 'codigo');
+    TABLAS.forEach(t=>{ state[t.name] = mergeCollections(state[t.name], snap[t.name]||[], t.idKey); });
     return true;
   }catch(e){ return false; }
 }
@@ -581,6 +600,11 @@ const TABLAS = [
   {name:'movimientos', idKey:'id'},
   {name:'sugerencias', idKey:'id'},
   {name:'gastos', idKey:'id'},
+  {name:'herramientas', idKey:'codigo'},
+  {name:'herramientas_movimientos', idKey:'id'},
+  {name:'epis_catalogo', idKey:'codigo'},
+  {name:'operario_tallas', idKey:'id'},
+  {name:'epis_entregas', idKey:'id'},
 ];
 function camelToSnake(s){ return s.replace(/[A-Z]/g, c=>'_'+c.toLowerCase()); }
 function snakeToCamel(s){ return s.replace(/_([a-z0-9])/g, (_,c)=>c.toUpperCase()); }
@@ -1422,6 +1446,7 @@ function abrirFirmaModal(){
   }
   recibiState.firmaVacia = true;
   $('#recNombre').value = recibiState.nombre || '';
+  firmaHandlerActual = confirmarRecepcion;
   openModal('mFirma');
   requestAnimationFrame(()=>{
     const canvas = $('#sigCanvas');
@@ -1479,7 +1504,8 @@ async function confirmarRecepcion(){
     renderRecibi();
   }
 }
-$('#firmaConfirmBtn').addEventListener('click', confirmarRecepcion);
+let firmaHandlerActual = null;
+$('#firmaConfirmBtn').addEventListener('click', ()=>{ if(firmaHandlerActual) firmaHandlerActual(); });
 
 /* ================= HISTORIAL ================= */
 function obraLabelHis(m){
@@ -1564,6 +1590,7 @@ function renderHistorial(){
       const hora = new Date(m0.fecha).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
       const esAjuste = m0.obraLibre === 'Ajuste de inventario';
       const todosRecibidos = !esAjuste && grupo.every(m=>m.recibido);
+      const itemConFirma = grupo.find(m=>m.recibidoFirmaUrl) || (grupo.find(m=>m.recibido) || null);
       html += `<div class="card">
         <div class="card-head">
           <button class="tag click ${m0.tipo==='Entrada'?'in':'out'}" data-filtertipo="${m0.tipo}">${m0.tipo}</button>
@@ -1581,7 +1608,8 @@ function renderHistorial(){
         <details class="more"><summary>Más info</summary>
           <dl><dt>Responsable</dt><dd>${resp?escapeHtml(resp.nombre):'—'}</dd>
           ${m0.nota?`<dt>Nota</dt><dd>${escapeHtml(m0.nota)}</dd>`:''}
-          ${todosRecibidos?`<dt>Recibido</dt><dd>${escapeHtml(m0.recibidoPor||'')} · ${fmtDate(m0.recibidoFecha)}</dd>`:''}</dl>
+          ${itemConFirma?`<dt>Recibido</dt><dd>${escapeHtml(itemConFirma.recibidoPor||'')} · ${fmtDate(itemConFirma.recibidoFecha)}</dd>`:''}</dl>
+          ${itemConFirma && itemConFirma.recibidoFirmaUrl ? `<div style="margin-top:10px;"><div class="note" style="margin-bottom:6px;">Firma</div><img src="${itemConFirma.recibidoFirmaUrl}" style="width:100%;max-width:220px;background:#fff;border-radius:12px;border:1px solid var(--line);"></div>` : ''}
           <button class="btn btn-line btn-sm" data-albaran="${m0.grupoId||m0.id}" style="width:100%;margin-top:12px;">Descargar albarán</button>
         </details>
       </div>`;
@@ -1677,17 +1705,21 @@ function renderCatalogo(){
   const el = $('#content-cat');
   el.innerHTML = `
     <div class="head"><div class="tx"><h1>Catálogo</h1></div></div>
-    <div class="subtabs">
+    <div class="subtabs" style="flex-wrap:wrap;">
       <button class="btn ${catalogSub==='materiales'?'btn-signal':'btn-line'} btn-sm" data-tab="materiales">Materiales</button>
       <button class="btn ${catalogSub==='obras'?'btn-signal':'btn-line'} btn-sm" data-tab="obras">Obras</button>
       <button class="btn ${catalogSub==='proveedores'?'btn-signal':'btn-line'} btn-sm" data-tab="proveedores">Proveedores</button>
+      <button class="btn ${catalogSub==='herramientas'?'btn-signal':'btn-line'} btn-sm" data-tab="herramientas">Herramientas</button>
+      <button class="btn ${catalogSub==='epis'?'btn-signal':'btn-line'} btn-sm" data-tab="epis">EPIs</button>
     </div>
     <div id="catBody"></div>
   `;
   el.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click', ()=>{ catalogSub=b.dataset.tab; renderCatalogo(); }));
   if(catalogSub==='materiales') renderMaterialesTab($('#catBody'));
   else if(catalogSub==='obras') renderObrasTab($('#catBody'));
-  else renderProveedoresTab($('#catBody'));
+  else if(catalogSub==='proveedores') renderProveedoresTab($('#catBody'));
+  else if(catalogSub==='herramientas') renderHerramientasTab($('#catBody'));
+  else renderEpisTab($('#catBody'));
 }
 let matCatPage = 1;
 let matSeleccionados = new Set();
@@ -2094,6 +2126,281 @@ function openProveedorModal(existing){
   };
   openModal('mProveedor');
 }
+
+/* ================= HERRAMIENTAS ================= */
+const CATEGORIAS_HERRAMIENTA = ['Eléctrica','Manual','Medición','Elevación','Otras'];
+let herrCatPage = 1;
+function destinoLabelHerr(h){
+  if(h.estado!=='Asignada') return '';
+  if(h.asignadaObra){ const o=findObra(h.asignadaObra); return o?o.nombre:h.asignadaObra; }
+  return h.asignadaDetalle || '—';
+}
+function renderHerramientasTab(el){
+  el.innerHTML = `
+    <div class="search" style="margin-bottom:10px">${ICON_SEARCH}<input type="search" id="herrCatSearch" placeholder="Buscar herramienta"></div>
+    <button class="btn btn-ink btn-block" style="margin-bottom:12px" id="addHerrBtn">Añadir herramienta</button>
+    <div id="herrCatList"></div>
+  `;
+  el.querySelector('#addHerrBtn').addEventListener('click', ()=> openHerramientaModal(null));
+  const searchInput = el.querySelector('#herrCatSearch');
+  searchInput.addEventListener('input', ()=>{ herrCatPage=1; draw(); });
+  draw();
+  function draw(){
+    const q=(searchInput.value||'').trim().toLowerCase();
+    let list = state.herramientas.filter(h=>!h.eliminado);
+    if(q) list = list.filter(h=> h.nombre.toLowerCase().includes(q) || (h.marca&&h.marca.toLowerCase().includes(q)) || (h.categoria&&h.categoria.toLowerCase().includes(q)));
+    list.sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    const totalPages = Math.max(1, Math.ceil(list.length/PER_PAGE));
+    herrCatPage = Math.min(Math.max(1,herrCatPage), totalPages);
+    const pageList = list.slice((herrCatPage-1)*PER_PAGE, herrCatPage*PER_PAGE);
+    $('#herrCatList').innerHTML = (list.length ? `<div class="card">` + pageList.map(h=>`
+      <div class="cat-row"><div class="t"><b>${escapeHtml(h.nombre)}</b><small>${[h.categoria,h.marca].filter(Boolean).map(escapeHtml).join(' · ')}${h.estado==='Asignada'?' · Con: '+escapeHtml(destinoLabelHerr(h)):''}</small></div>
+        <div class="acts">
+          <span class="tag ${h.estado==='Disponible'?'in':(h.estado==='Baja'?'off':'')}" style="${h.estado==='Asignada'?'background:var(--out-soft);color:var(--out);':''}">${escapeHtml(h.estado)}</span>
+          ${h.estado!=='Baja' ? `<button class="btn btn-line btn-sm" data-asignar="${h.codigo}">${h.estado==='Disponible'?'Asignar':'Devolver'}</button>` : ''}
+          <button class="icon-btn" data-edit="${h.codigo}" aria-label="Editar">${ICON_EDIT}</button>
+        </div></div>`).join('') + `</div>` : `<p class="empty">Aún no hay herramientas dadas de alta.</p>`) + pagerHtml(herrCatPage, totalPages, 'herrCat');
+    $$('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openHerramientaModal(state.herramientas.find(h=>h.codigo===b.dataset.edit))));
+    $$('[data-asignar]').forEach(b=>b.addEventListener('click', ()=>openAsignarHerramientaModal(state.herramientas.find(h=>h.codigo===b.dataset.asignar))));
+    const prevBtn=$('#herrCatPrev'), nextBtn=$('#herrCatNext');
+    if(prevBtn) prevBtn.addEventListener('click', ()=>{ herrCatPage--; draw(); });
+    if(nextBtn) nextBtn.addEventListener('click', ()=>{ herrCatPage++; draw(); });
+  }
+}
+function openHerramientaModal(existing){
+  const isEdit = !!existing;
+  $('#mHerramientaTitle').textContent = isEdit?'Editar herramienta':'Nueva herramienta';
+  const body = $('#mHerramientaBody');
+  body.innerHTML = `
+    <div class="field"><label for="hNom">Nombre</label><input id="hNom" type="text" value="${escapeHtml(existing?.nombre||'')}" placeholder="Ej. Taladro Bosch GSB 13 RE"></div>
+    <div class="two">
+      <div class="field"><label for="hCat">Categoría</label><select id="hCat">${CATEGORIAS_HERRAMIENTA.map(c=>`<option value="${c}" ${existing&&existing.categoria===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label for="hMarca">Marca</label><input id="hMarca" type="text" value="${escapeHtml(existing?.marca||'')}"></div>
+    </div>
+    <div class="field"><label for="hSerie">Nº de serie (opcional)</label><input id="hSerie" type="text" value="${escapeHtml(existing?.numeroSerie||'')}"></div>
+    <div class="field"><label for="hDesc">Descripción (opcional)</label><input id="hDesc" type="text" value="${escapeHtml(existing?.descripcion||'')}"></div>
+    ${isEdit?`<button class="btn btn-red btn-block" style="margin-top:10px" id="hDelBtn" type="button">Eliminar herramienta</button>`:''}
+  `;
+  if(isEdit) body.querySelector('#hDelBtn').addEventListener('click', async ()=>{
+    if(confirm('¿Eliminar esta herramienta?')){
+      existing.eliminado=true; touch(existing);
+      const ok = await saveAll(); closeModals();
+      if(ok) toast('Herramienta eliminada');
+      renderCatalogo();
+    }
+  });
+  $('#mHerramientaSave').onclick = async ()=>{
+    const nombre=body.querySelector('#hNom').value.trim();
+    const categoria=body.querySelector('#hCat').value;
+    const marca=body.querySelector('#hMarca').value.trim();
+    const numeroSerie=body.querySelector('#hSerie').value.trim();
+    const descripcion=body.querySelector('#hDesc').value.trim();
+    if(!nombre){ toast('El nombre es obligatorio'); return; }
+    const btn = $('#mHerramientaSave'); btn.disabled=true;
+    if(isEdit){ touch(Object.assign(existing, {nombre, categoria, marca, numeroSerie, descripcion})); }
+    else{ const codigo=nextCodigo('HERR', state.herramientas); state.herramientas.push(touch({codigo, nombre, categoria, marca, numeroSerie, descripcion, estado:'Disponible', ejemplo:false})); }
+    const ok = await saveAll(); btn.disabled=false; closeModals();
+    if(ok){ toast('Herramienta guardada'); renderCatalogo(); }
+  };
+  openModal('mHerramienta');
+}
+function openAsignarHerramientaModal(h){
+  if(!h) return;
+  const devolviendo = h.estado==='Asignada';
+  $('#mAsignarHerrTitle').textContent = devolviendo ? 'Devolver herramienta' : 'Asignar herramienta';
+  const obrasActivas = state.obras.filter(o=>o.estado==='Activa' && !o.eliminado);
+  const body = $('#mAsignarHerrBody');
+  if(devolviendo){
+    body.innerHTML = `<p class="note" style="margin:0 0 14px">"${escapeHtml(h.nombre)}" está asignada a ${escapeHtml(destinoLabelHerr(h))}. Al devolverla quedará disponible de nuevo.</p>`;
+  } else {
+    body.innerHTML = `
+      <p class="note" style="margin:0 0 14px">Asignar "${escapeHtml(h.nombre)}" a:</p>
+      <div class="field"><label for="haDest">Obra / persona</label>
+        <select id="haDest">
+          <option value="">Sin elegir</option>
+          ${obrasActivas.map(o=>`<option value="obra:${o.codigo}">${escapeHtml(o.nombre)}</option>`).join('')}
+          <option value="libre:Operario">Operario</option>
+          <option value="libre:Otros">Otros</option>
+        </select>
+      </div>
+      <div class="field" id="haDetWrap" hidden><label for="haDet">Nombre o detalle</label><input id="haDet" type="text"></div>
+    `;
+    body.querySelector('#haDest').addEventListener('change', e=>{ body.querySelector('#haDetWrap').hidden = !e.target.value.startsWith('libre:'); });
+  }
+  $('#mAsignarHerrSave').onclick = async ()=>{
+    const btn = $('#mAsignarHerrSave'); btn.disabled=true;
+    const ahora = Date.now();
+    if(devolviendo){
+      state.herramientas_movimientos.push(touch({id:'HM'+ahora, codigoHerramienta:h.codigo, fecha:new Date().toISOString(), accion:'Devolver', codigoObra:h.asignadaObra||null, obraLibre: h.asignadaObra?'':(h.asignadaDetalle||''), responsableCodigo: currentUsuario?currentUsuario.codigo:null}));
+      Object.assign(h, {estado:'Disponible', asignadaObra:null, asignadaResponsable:null, asignadaDetalle:'', asignadaFecha:null});
+      touch(h);
+    } else {
+      const destVal = body.querySelector('#haDest').value;
+      if(!destVal){ toast('Elige a quién se asigna'); btn.disabled=false; return; }
+      let codigoObra=null, detalle='';
+      if(destVal.startsWith('obra:')) codigoObra = destVal.slice(5);
+      else detalle = body.querySelector('#haDet').value.trim() || destVal.slice(6);
+      state.herramientas_movimientos.push(touch({id:'HM'+ahora, codigoHerramienta:h.codigo, fecha:new Date().toISOString(), accion:'Asignar', codigoObra, obraLibre: codigoObra?'':detalle, responsableCodigo: currentUsuario?currentUsuario.codigo:null}));
+      Object.assign(h, {estado:'Asignada', asignadaObra:codigoObra, asignadaResponsable:null, asignadaDetalle:detalle, asignadaFecha:new Date().toISOString()});
+      touch(h);
+    }
+    const ok = await saveAll(); btn.disabled=false; closeModals();
+    if(ok){ toast(devolviendo?'Herramienta devuelta':'Herramienta asignada'); renderCatalogo(); }
+  };
+  openModal('mAsignarHerr');
+}
+
+/* ================= EPIs ================= */
+let epiEntregaSeleccion = {};
+function renderEpisTab(el){
+  el.innerHTML = `
+    <button class="btn btn-signal btn-block" style="margin-bottom:10px;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;" id="entregarEpiBtn">Entregar EPIs a un operario</button>
+    <button class="btn btn-line btn-block" style="margin-bottom:12px" id="addEpiTipoBtn">Añadir tipo de EPI</button>
+    <p class="sec">Catálogo de EPIs</p>
+    <div id="epiCatList"></div>
+    <p class="sec">Últimas entregas</p>
+    <div id="epiEntregasList"></div>
+  `;
+  el.querySelector('#entregarEpiBtn').addEventListener('click', ()=> openEntregaEpiModal());
+  el.querySelector('#addEpiTipoBtn').addEventListener('click', ()=> openEpiTipoModal(null));
+  const tipos = state.epis_catalogo.filter(e=>!e.eliminado).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  $('#epiCatList').innerHTML = tipos.length ? `<div class="card">` + tipos.map(e=>`
+    <div class="cat-row"><div class="t"><b>${escapeHtml(e.nombre)}</b><small>${e.requiereTalla?'Con talla ('+escapeHtml(e.tipoTalla||'')+')':'Talla única'}</small></div>
+      <div class="acts">
+        <button class="icon-btn" data-edit="${e.codigo}" aria-label="Editar">${ICON_EDIT}</button>
+        <button class="icon-btn" data-del="${e.codigo}" aria-label="Borrar">${ICON_TRASH}</button>
+      </div></div>`).join('') + `</div>` : `<p class="empty">Aún no hay tipos de EPI.</p>`;
+  $$('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openEpiTipoModal(state.epis_catalogo.find(e=>e.codigo===b.dataset.edit))));
+  $$('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(confirm('¿Eliminar este tipo de EPI?')){
+      const tipo = state.epis_catalogo.find(e=>e.codigo===b.dataset.del);
+      if(tipo){ tipo.eliminado=true; touch(tipo); }
+      const ok = await saveAll(); if(ok) toast('Eliminado'); renderCatalogo();
+    }
+  }));
+  const entregas = state.epis_entregas.filter(e=>!e.eliminado).sort((a,b)=> new Date(b.fecha)-new Date(a.fecha)).slice(0,8);
+  $('#epiEntregasList').innerHTML = entregas.length ? `<div class="card">` + entregas.map(e=>{
+    const resp = findResponsable(e.responsableCodigo);
+    const items = e.items||[];
+    return `<div class="row"><div class="t"><b>${resp?escapeHtml(resp.nombre):'—'}</b><small>${items.length} artículo${items.length===1?'':'s'} · ${fmtDateOnly(e.fecha)}</small></div>
+      ${e.firmaUrl?`<img src="${e.firmaUrl}" style="width:44px;height:28px;object-fit:contain;background:#fff;border-radius:6px;border:1px solid var(--line);">`:''}
+    </div>`;
+  }).join('') + `</div>` : `<p class="empty">Todavía no se han entregado EPIs.</p>`;
+}
+function openEpiTipoModal(existing){
+  const isEdit = !!existing;
+  $('#mEpiTipoTitle').textContent = isEdit?'Editar tipo de EPI':'Nuevo tipo de EPI';
+  const body = $('#mEpiTipoBody');
+  body.innerHTML = `
+    <div class="field"><label for="etNom">Nombre</label><input id="etNom" type="text" value="${escapeHtml(existing?.nombre||'')}" placeholder="Ej. Casco"></div>
+    <div class="field"><label for="etReq">¿Necesita talla?</label><select id="etReq"><option value="no" ${existing&&!existing.requiereTalla?'selected':''}>No, talla única</option><option value="si" ${existing&&existing.requiereTalla?'selected':''}>Sí</option></select></div>
+    <div class="field" id="etTipoWrap" ${existing&&existing.requiereTalla?'':'hidden'}><label for="etTipo">Tipo de talla</label><select id="etTipo"><option value="ropa" ${existing&&existing.tipoTalla==='ropa'?'selected':''}>Ropa (S/M/L/XL)</option><option value="calzado" ${existing&&existing.tipoTalla==='calzado'?'selected':''}>Calzado (número)</option></select></div>
+  `;
+  body.querySelector('#etReq').addEventListener('change', e=>{ body.querySelector('#etTipoWrap').hidden = e.target.value!=='si'; });
+  $('#mEpiTipoSave').onclick = async ()=>{
+    const nombre = body.querySelector('#etNom').value.trim();
+    const requiereTalla = body.querySelector('#etReq').value==='si';
+    const tipoTalla = requiereTalla ? body.querySelector('#etTipo').value : null;
+    if(!nombre){ toast('El nombre es obligatorio'); return; }
+    const btn = $('#mEpiTipoSave'); btn.disabled=true;
+    if(isEdit){ touch(Object.assign(existing, {nombre, requiereTalla, tipoTalla})); }
+    else{ const codigo=nextCodigo('EPI', state.epis_catalogo); state.epis_catalogo.push(touch({codigo, nombre, requiereTalla, tipoTalla, ejemplo:false})); }
+    const ok = await saveAll(); btn.disabled=false; closeModals();
+    if(ok){ toast('Guardado'); renderCatalogo(); }
+  };
+  openModal('mEpiTipo');
+}
+function tallaOperario(codigoResp, codigoEpi){
+  const t = state.operario_tallas.find(x=> x.responsableCodigo===codigoResp && x.epiCodigo===codigoEpi);
+  return t ? t.talla : '';
+}
+function openEntregaEpiModal(){
+  epiEntregaSeleccion = {};
+  const responsables = state.responsables.filter(r=>!r.eliminado).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const tipos = state.epis_catalogo.filter(e=>!e.eliminado).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const body = $('#mEntregaEpiBody');
+  function pintarItems(codigoResp){
+    return tipos.map(t=>{
+      const talla = codigoResp ? tallaOperario(codigoResp, t.codigo) : '';
+      const sel = epiEntregaSeleccion[t.codigo];
+      return `<label class="check-row"><input type="checkbox" data-episel="${t.codigo}" ${sel?'checked':''}><span class="box">${ICON_CHECK}</span>
+        <span class="t" style="flex:1">
+          <b>${escapeHtml(t.nombre)}</b>
+          ${t.requiereTalla?`<input type="text" data-epitalla="${t.codigo}" value="${escapeHtml(sel?sel.talla:talla)}" placeholder="Talla" style="width:70px;height:34px;min-height:0;padding:0 8px;margin-top:4px;background:var(--sunk);border:0;border-radius:8px;font-size:13px;">`:''}
+        </span>
+      </label>`;
+    }).join('');
+  }
+  body.innerHTML = `
+    <div class="field"><label for="eeResp">Operario</label>
+      <select id="eeResp"><option value="">Selecciona...</option>${responsables.map(r=>`<option value="${r.codigo}">${escapeHtml(r.nombre)}</option>`).join('')}</select>
+    </div>
+    <label>EPIs a entregar</label>
+    <div id="eeItemsList">${tipos.length?pintarItems(null):'<p class="empty">Añade primero tipos de EPI.</p>'}</div>
+  `;
+  function wireItems(){
+    body.querySelectorAll('[data-episel]').forEach(cb=>cb.addEventListener('change', e=>{
+      const cod = e.target.dataset.episel;
+      if(e.target.checked){ const talla = body.querySelector('[data-epitalla="'+cod+'"]'); epiEntregaSeleccion[cod] = {talla: talla?talla.value:''}; }
+      else delete epiEntregaSeleccion[cod];
+    }));
+    body.querySelectorAll('[data-epitalla]').forEach(inp=>inp.addEventListener('input', e=>{
+      const cod = e.target.dataset.epitalla;
+      if(epiEntregaSeleccion[cod]) epiEntregaSeleccion[cod].talla = e.target.value;
+    }));
+  }
+  wireItems();
+  body.querySelector('#eeResp').addEventListener('change', e=>{
+    epiEntregaSeleccion = {};
+    $('#eeItemsList').innerHTML = pintarItems(e.target.value||null);
+    wireItems();
+  });
+  $('#mEntregaEpiSave').onclick = async ()=>{
+    const codigoResp = body.querySelector('#eeResp').value;
+    if(!codigoResp){ toast('Elige un operario'); return; }
+    const items = Object.keys(epiEntregaSeleccion).map(cod=>{
+      const tipo = tipos.find(t=>t.codigo===cod);
+      return { epiCodigo: cod, epiNombre: tipo?tipo.nombre:cod, talla: epiEntregaSeleccion[cod].talla||'' };
+    });
+    if(!items.length){ toast('Selecciona al menos un EPI'); return; }
+    closeModals();
+    openFirmaEpiModal(codigoResp, items);
+  };
+  openModal('mEntregaEpi');
+}
+function openFirmaEpiModal(codigoResp, items){
+  recibiState.firmaVacia = true;
+  $('#recNombre').value = findResponsable(codigoResp)?.nombre || '';
+  firmaHandlerActual = async ()=>{
+    if(recibiState.firmaVacia){ toast('Falta la firma'); return; }
+    const btn = $('#firmaConfirmBtn'); btn.disabled = true;
+    const firmaDataUrl = currentSigCanvas.toDataURL('image/png');
+    const firmaUrl = await uploadToStorage(firmaDataUrl, 'epis/'+Date.now());
+    state.epis_entregas.push(touch({
+      id:'EE'+Date.now()+'_'+Math.floor(Math.random()*10000),
+      responsableCodigo: codigoResp, fecha: new Date().toISOString(), items,
+      firmaUrl, entregadoPor: currentUsuario?currentUsuario.nombre:''
+    }));
+    items.forEach(it=>{
+      const id = codigoResp+'_'+it.epiCodigo;
+      const existing = state.operario_tallas.find(x=>x.id===id);
+      if(it.talla){
+        if(existing) touch(Object.assign(existing, {talla: it.talla}));
+        else state.operario_tallas.push(touch({id, responsableCodigo:codigoResp, epiCodigo:it.epiCodigo, talla:it.talla}));
+      }
+    });
+    const ok = await saveAll();
+    btn.disabled = false;
+    closeModals();
+    if(ok){ toast('Entrega registrada'); renderCatalogo(); }
+  };
+  openModal('mFirma');
+  requestAnimationFrame(()=>{
+    const canvas = $('#sigCanvas');
+    if(canvas){ const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); setupSignaturePad(canvas); }
+  });
+}
+
 function qrImageUrl(text, size){
   size = size || 240;
   return 'https://api.qrserver.com/v1/create-qr-code/?size='+size+'x'+size+'&data='+encodeURIComponent(text);
@@ -2128,6 +2435,7 @@ function openEtiquetaModal(material){
 function generarAlbaranHtml(grupo){
   const m0 = grupo[0];
   const resp = m0.responsableCodigo ? findResponsable(m0.responsableCodigo) : null;
+  const itemConFirma = grupo.find(m=>m.recibidoFirmaUrl) || null;
   const filas = grupo.map(m=>{
     const mat = findMaterial(m.codigoMaterial);
     return `<tr><td style="padding:7px 0;border-bottom:1px solid #eee;">${escapeHtml(mat?mat.descripcion:m.codigoMaterial)}</td><td style="padding:7px 0;border-bottom:1px solid #eee;text-align:right;">${m.cantidad} ${escapeHtml(mat?unidadAbrev(mat.unidad):'')}</td></tr>`;
@@ -2145,10 +2453,17 @@ function generarAlbaranHtml(grupo){
         <thead><tr><th style="text-align:left;border-bottom:2px solid #16171A;padding:6px 0;">Material</th><th style="text-align:right;border-bottom:2px solid #16171A;padding:6px 0;">Cantidad</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
-      <div style="margin-top:50px;display:flex;justify-content:space-between;font-size:13.5px;color:#444;">
-        <div>Entrega:<br><br>_________________________</div>
-        <div>Recibe:<br><br>_________________________</div>
-      </div>
+      ${itemConFirma ? `
+        <div style="margin-top:40px;">
+          <div style="color:#666;font-size:13px;margin-bottom:6px;">Recibido por ${escapeHtml(itemConFirma.recibidoPor||'')} el ${fmtDate(itemConFirma.recibidoFecha)}</div>
+          <img src="${itemConFirma.recibidoFirmaUrl}" style="max-width:260px;background:#fff;border:1px solid #ddd;border-radius:8px;">
+        </div>
+      ` : `
+        <div style="margin-top:50px;display:flex;justify-content:space-between;font-size:13.5px;color:#444;">
+          <div>Entrega:<br><br>_________________________</div>
+          <div>Recibe:<br><br>_________________________</div>
+        </div>
+      `}
     </div>
   `;
 }
