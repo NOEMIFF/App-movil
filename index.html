@@ -46,7 +46,7 @@ button{font-family:inherit;color:inherit}
 .head{padding:24px 0 18px;display:flex;align-items:flex-end;gap:12px}
 .head .tx{flex:1}
 .head p{margin:8px 0 0;color:var(--ink-2);font-size:14.5px}
-.sec{font-family:"Bricolage Grotesque",sans-serif;font-weight:600;font-size:14px;color:var(--ink-2);margin:24px 0 10px}
+.sec{font-family:Manrope,sans-serif;font-weight:700;font-style:italic;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink);margin:24px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line);}
 
 /* PASOS */
 .step{background:var(--card);border-radius:var(--r);margin-bottom:10px;overflow:hidden;transition:box-shadow .2s}
@@ -71,7 +71,7 @@ button{font-family:inherit;color:inherit}
 
 /* CAMPOS */
 .field{margin-bottom:12px}.field:last-child{margin-bottom:0}
-.field > label{display:block;font-size:13px;font-weight:700;color:var(--ink-2);margin-bottom:8px}
+.field > label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2);margin-bottom:8px}
 select,input[type=text],input[type=search],input[type=number],input[type=file],textarea{
   width:100%;min-height:56px;padding:16px;background:var(--sunk);color:var(--ink);
   border:2px solid transparent;border-radius:14px;font:500 16px/1.3 Manrope,sans-serif}
@@ -308,10 +308,11 @@ details.more dd{margin:0}
 [data-theme="dark"] .toast{background:var(--signal);color:var(--signal-ink)}
 
 /* BLOQUEO */
-.lock{position:fixed;inset:0;z-index:60;background:var(--ink);color:#F5F4F2;display:grid;place-items:center;padding:24px}
-.lock-in{width:100%;max-width:312px;text-align:center}
-.lock h1{font-size:32px;margin-bottom:7px;color:#fff}
-.lock .sub{font-size:14px;color:rgba(255,255,255,.5);margin:0 0 32px;font-weight:500}
+.lock{position:fixed;inset:0;z-index:60;background:var(--ink);display:grid;place-items:center;padding:24px}
+.lock-in{background:var(--card);border-radius:20px;padding:34px 28px;width:100%;max-width:340px;box-shadow:0 30px 60px rgba(0,0,0,.35);text-align:left}
+.lock h1{font-size:26px;margin:0 0 4px;color:var(--ink);}
+.lock .sub{font-size:14px;color:var(--ink-2);margin:0 0 22px;font-weight:500}
+.lock-badge{display:inline-flex;align-items:center;gap:6px;background:var(--sunk);color:var(--ink-2);padding:5px 11px;border-radius:9px;font-size:10.5px;font-weight:800;letter-spacing:.05em;margin-bottom:16px;}
 .dots{display:flex;gap:16px;justify-content:center;margin-bottom:38px;transition:transform .12s}
 .dots.err{animation:shakeDots .4s}
 @keyframes shakeDots{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
@@ -356,12 +357,23 @@ details.more dd{margin:0}
 <!-- ===== BLOQUEO ===== -->
 <div class="lock" id="lock">
   <div class="lock-in">
+    <div class="lock-badge">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+      MÓVIL
+    </div>
     <h1>Almacén</h1>
     <p class="sub">Inicia sesión</p>
-    <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username" style="width:100%;height:44px;padding:0 12px;background:var(--sunk);border:0;border-radius:8px;font-size:15px;margin-bottom:10px;"></div>
-    <div class="field"><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" style="width:100%;height:44px;padding:0 12px;background:var(--sunk);border:0;border-radius:8px;font-size:15px;margin-bottom:10px;"></div>
-    <p id="loginError" class="note" style="color:#c0392b;display:none;">Email o contraseña incorrectos.</p>
-    <button id="loginBtn" style="width:100%;height:46px;margin-top:6px;">Entrar</button>
+    <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username" style="width:100%;height:44px;padding:0 12px;background:var(--sunk);border:0;border-radius:8px;font-size:15px;margin-bottom:14px;"></div>
+    <div class="field"><label for="loginPass">Contraseña</label>
+      <div style="position:relative;margin-bottom:10px;">
+        <input id="loginPass" type="password" autocomplete="current-password" style="width:100%;height:44px;padding:0 40px 0 12px;background:var(--sunk);border:0;border-radius:8px;font-size:15px;">
+        <button type="button" onclick="togglePasswordVisible()" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--ink-2);" aria-label="Mostrar contraseña">
+          <svg id="eyeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <p id="loginError" class="note" style="color:var(--red);display:none;">Email o contraseña incorrectos.</p>
+    <button id="loginBtn" class="btn btn-signal" style="width:100%;height:46px;margin-top:6px;">Entrar</button>
   </div>
 </div>
 
@@ -999,7 +1011,7 @@ function renderMov(){
             <option value="">Sin elegir</option>
             ${responsablesActivos.map(r=>`<option value="${r.codigo}" ${formState.responsableCodigo===r.codigo?'selected':''}>${escapeHtml(r.nombre)}</option>`).join('')}
           </select>
-          ${responsablesActivos.length===0?'<p class="note">No hay responsables creados. Añádelos en Config.</p>':''}
+          ${responsablesActivos.length===0?'<p class="note">No hay personal creado. Añádelo en Config.</p>':''}
         </div>
       </div>
     </div>
@@ -2808,7 +2820,8 @@ function renderConfig(){
   el.innerHTML = `
     <div class="head"><div class="tx"><h1>Config.</h1></div></div>
     ${currentUsuario ? `<div class="card"><p class="note" style="margin:0">Conectado como <b style="color:var(--ink)">${escapeHtml(currentUsuario.nombre)}</b></p></div>` : ''}
-    <button class="btn btn-ink btn-block" style="margin-bottom:12px" id="addRespBtn">Añadir responsable</button>
+    <p class="sec">Personal</p>
+    <button class="btn btn-ink btn-block" style="margin-bottom:12px" id="addRespBtn">Añadir persona</button>
     <div id="respCfgList"></div>
     <p class="sec">Apariencia</p>
     <div class="field"><label for="themeSel">Tema</label><select id="themeSel"><option value="auto">Automático</option><option value="light">Claro</option><option value="dark">Oscuro</option></select></div>
@@ -2817,7 +2830,7 @@ function renderConfig(){
     <p class="note">Además del aviso dentro de la app, esto te avisa aunque tengas otra pestaña abierta.</p>
     <p class="sec">Copia de seguridad</p>
     <button class="btn btn-line btn-block" id="exportCatalogoBtn">Exportar catálogo (CSV)</button>
-    <p class="note">Descarga materiales, obras y responsables en tres archivos CSV separados.</p>
+    <p class="note">Descarga catálogo, obras y personal en tres archivos CSV separados.</p>
     <p class="sec">Sesión</p>
     <button class="btn btn-line btn-block" id="cerrarSesionBtn">Cerrar sesión</button>
     <p class="sec">Papelera</p>
@@ -2840,12 +2853,12 @@ function renderConfig(){
       <div class="acts">
         <button class="icon-btn" data-edit="${r.codigo}" aria-label="Editar">${ICON_EDIT}</button>
         <button class="icon-btn" data-del="${r.codigo}" aria-label="Borrar">${ICON_TRASH}</button>
-      </div></div>`).join('') + `</div>` : `<p class="empty">Aún no hay responsables dados de alta.</p>`;
+      </div></div>`).join('') + `</div>` : `<p class="empty">Aún no hay personal dado de alta.</p>`;
   $$('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openResponsableModal(findResponsable(b.dataset.edit))));
   $$('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
-    if(confirm('¿Eliminar este responsable?')){
+    if(confirm('¿Eliminar a esta persona?')){
       const resp=findResponsable(b.dataset.del); if(resp){ resp.eliminado=true; touch(resp); }
-      const ok = await saveAll(); if(ok) toast('Responsable eliminado'); renderConfig();
+      const ok = await saveAll(); if(ok) toast('Persona eliminada'); renderConfig();
     }
   }));
   const themeSel = $('#themeSel'); themeSel.value = currentTheme;
@@ -2939,7 +2952,7 @@ function drawSugerencias(){
 }
 function openResponsableModal(existing){
   const isEdit = !!existing;
-  $('#mRespTitle').textContent = isEdit?'Editar responsable':'Nuevo responsable';
+  $('#mRespTitle').textContent = isEdit?'Editar persona':'Nueva persona';
   const body = $('#mRespBody');
   body.innerHTML = `
     <div class="field"><label for="rNom">Nombre</label><input id="rNom" type="text" value="${escapeHtml(existing?.nombre||'')}" placeholder="Nombre y apellidos"></div>
@@ -2955,7 +2968,7 @@ function openResponsableModal(existing){
     if(isEdit){ touch(Object.assign(existing, {nombre, email})); }
     else{ const codigo=nextCodigo('RESP', state.responsables); state.responsables.push(touch({codigo, nombre, email, ejemplo:false})); }
     const ok = await saveAll(); btn.disabled=false; closeModals();
-    if(ok){ toast('Responsable guardado'); renderConfig(); }
+    if(ok){ toast('Persona guardada'); renderConfig(); }
   };
   openModal('mResp');
 }
@@ -2971,6 +2984,14 @@ async function checkStoredUnlock(){
   return { ok:false };
 }
 
+function togglePasswordVisible(){
+  const input = document.getElementById('loginPass');
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  document.getElementById('eyeIcon').innerHTML = showing
+    ? '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/>'
+    : '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a20.29 20.29 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+}
 function setupLock(){
   const btn = $('#loginBtn');
   const doLogin = async ()=>{
