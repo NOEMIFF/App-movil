@@ -551,7 +551,7 @@ const seedObras = [{codigo:'OBR-001', nombre:'Reforma Calle Mayor 12', responsab
 const seedResponsables = [{codigo:'RESP-001', nombre:'Encargado de almacén', ejemplo:true, actualizadoEn:1}];
 
 
-function touch(obj){ obj.actualizadoEn = Date.now(); return obj; }
+function touch(obj){ if(typeof obj.eliminado !== 'boolean') obj.eliminado = false; obj.actualizadoEn = Date.now(); return obj; }
 function mergeCollections(remote, local, idKey){
   const map = {};
   (remote||[]).forEach(item=>{ map[item[idKey]] = item; });
